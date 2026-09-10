@@ -113,6 +113,19 @@
           <span v-else>规划中 · 四专员出动…</span>
         </button>
         <p v-if="errors.form" class="sheet__form-err">{{ errors.form }}</p>
+
+        <!-- 规划进度：四专员步进卡 -->
+        <div v-if="loading" class="steps" aria-live="polite">
+          <div v-for="(s, i) in STEPS" :key="s.label" class="step" :class="stepClass(i)">
+            <span class="step__icon">
+              <Check v-if="i < progressStep" :size="14" class="step__check" />
+              <span v-else-if="i === progressStep" class="step__spin"></span>
+            </span>
+            <span class="step__label">{{ s.label }}</span>
+            <span class="step__state">{{ stateText(i) }}</span>
+          </div>
+          <div class="steps__bar"><div class="steps__fill" :style="{ width: progressPct + '%' }"></div></div>
+        </div>
       </form>
     </section>
 
@@ -160,10 +173,10 @@
 // 设计：白底大留白 + #f5f5f7 交替节段 + 系统蓝交互色 + 胶囊按钮 + 弹簧动效。
 // 业务逻辑不变：8 字段 → generateTripPlan → sessionStorage → /result。
 
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import { MapPin, CloudSun, BedDouble, CalendarCheck } from 'lucide-vue-next'
+import { MapPin, CloudSun, BedDouble, CalendarCheck, Check } from 'lucide-vue-next'
 import { generateTripPlan } from '@/services/api'
 import type { TripFormData } from '@/types'
 
@@ -190,6 +203,42 @@ const formData = reactive<TripFormData>({
 })
 
 const errors = reactive<Record<string, string>>({})
+
+/* 规划进度模拟：节奏对齐后端四步串行流水线（约 7s/步）。
+   阶段二接 SSE 真进度时，只需把 progressStep 改为由后端事件驱动。 */
+const STEPS = [
+  { icon: MapPin, label: '搜索景点' },
+  { icon: CloudSun, label: '查询天气' },
+  { icon: BedDouble, label: '推荐酒店' },
+  { icon: CalendarCheck, label: '生成行程计划' }
+]
+const progressStep = ref(0) // 0~3=当前进行步，4=全部完成
+let progressTimer: number | undefined
+const progressPct = computed(() => Math.min((progressStep.value / 4) * 100, 100))
+
+function startProgress() {
+  progressStep.value = 0
+  progressTimer = window.setInterval(() => {
+    if (progressStep.value < 4) progressStep.value += 1
+  }, 7000)
+}
+function finishProgress() {
+  if (progressTimer) window.clearInterval(progressTimer)
+  progressTimer = undefined
+  progressStep.value = 4
+}
+function stepClass(i: number) {
+  return {
+    'is-done': i < progressStep.value,
+    'is-doing': i === progressStep.value,
+    'is-wait': i > progressStep.value
+  }
+}
+function stateText(i: number) {
+  if (i < progressStep.value) return '已完成'
+  if (i === progressStep.value) return '进行中…'
+  return '排队中'
+}
 
 function togglePreference(p: string) {
   const i = formData.preferences.indexOf(p)
@@ -229,8 +278,10 @@ function validate(): boolean {
 async function handleSubmit() {
   if (!validate()) return
   loading.value = true
+  startProgress()
   try {
     const response = await generateTripPlan({ ...formData })
+    finishProgress()
     if (response.success && response.data) {
       sessionStorage.setItem('tripPlan', JSON.stringify(response.data))
       router.push('/result')
@@ -240,6 +291,7 @@ async function handleSubmit() {
   } catch (err: any) {
     errors.form = err?.message || '网络出了问题：请确认后端已启动后重试'
   } finally {
+    if (progressTimer) window.clearInterval(progressTimer)
     loading.value = false
   }
 }
@@ -327,6 +379,33 @@ input[type="date"].field__input{font-variant-numeric:tabular-nums;}
 .go:disabled{opacity:.6;cursor:progress;}
 .go:focus-visible{outline:2px solid #007AFF;outline-offset:3px;}
 .sheet__form-err{font-size:13px;color:#FF3B30;margin:12px 0 0;text-align:center;}
+
+/* 规划进度卡 */
+.steps{margin-top:20px;background:#f5f5f7;border-radius:14px;padding:6px 18px;
+  animation:rise .5s var(--ease-apple) both;}
+.step{display:flex;align-items:center;gap:12px;padding:12px 2px;
+  border-bottom:1px solid rgba(60,60,67,.08);}
+.step:nth-last-child(2){border-bottom:0;}
+.step__icon{width:26px;height:26px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(120,120,128,.12);color:#86868b;transition:background .3s var(--ease-apple);}
+.step.is-wait .step__label{color:#86868b;}
+.step.is-doing .step__icon{background:rgba(0,122,255,.14);color:#007AFF;}
+.step__spin{width:14px;height:14px;border-radius:50%;
+  border:2px solid rgba(0,122,255,.25);border-top-color:#007AFF;
+  animation:spin .8s linear infinite;}
+.step.is-done .step__icon{background:#34C759;color:#fff;}
+.step__check{animation:pop .4s var(--ease-apple) both;}
+.step__label{flex:1;font-size:14px;color:#1d1d1f;transition:color .3s var(--ease-apple);}
+.step__state{font-size:12px;color:#86868b;transition:color .3s var(--ease-apple);}
+.step.is-doing .step__state{color:#007AFF;}
+.step.is-done .step__state{color:#34C759;}
+.steps__bar{height:4px;border-radius:980px;background:rgba(120,120,128,.16);
+  margin:12px 2px 14px;overflow:hidden;}
+.steps__fill{height:100%;background:#007AFF;border-radius:980px;
+  transition:width .6s var(--ease-apple);}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes pop{0%{transform:scale(.3);opacity:0;}70%{transform:scale(1.18);}100%{transform:scale(1);opacity:1;}}
 
 /* 工作原理 */
 .how{padding:104px 24px;text-align:center;}
