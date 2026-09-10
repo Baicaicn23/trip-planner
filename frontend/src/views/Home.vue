@@ -30,7 +30,7 @@
       <form class="sheet" novalidate @submit.prevent="handleSubmit">
         <div class="sheet__head">
           <h2 class="sheet__title">旅行申请表</h2>
-          <span class="sheet__meta">8 项 · 约 1 分钟填完</span>
+          <button type="button" class="fill-demo" @click="fillDemo">🎲 一键填充演示</button>
         </div>
 
         <div class="grid">
@@ -46,11 +46,6 @@
             <span v-if="errors.city" class="field__err">{{ errors.city }}</span>
           </label>
 
-          <div class="field field--days">
-            <span class="field__label">天数 · 自动</span>
-            <span class="field__days">{{ formData.travel_days }}<i>天</i></span>
-          </div>
-
           <label class="field">
             <span class="field__label">出发日期</span>
             <input v-model="formData.start_date" type="date" class="field__input" :min="today" />
@@ -62,6 +57,11 @@
             <input v-model="formData.end_date" type="date" class="field__input" :min="formData.start_date || today" />
             <span v-if="errors.end_date" class="field__err">{{ errors.end_date }}</span>
           </label>
+
+          <div class="field field--full field--daysrow">
+            <span class="field__label">天数 · 自动计算</span>
+            <span class="days-badge">共 {{ formData.travel_days }} 天</span>
+          </div>
 
           <fieldset class="field field--full">
             <legend class="field__label">交通方式</legend>
@@ -178,6 +178,7 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { MapPin, CloudSun, BedDouble, CalendarCheck, Check } from 'lucide-vue-next'
 import { generateTripPlan } from '@/services/api'
+import { savePlan } from '@/lib/plans'
 import type { TripFormData } from '@/types'
 
 const TRANSPORT_OPTIONS = ['公共交通', '自驾', '步行', '混合'] as const
@@ -267,6 +268,22 @@ watch([() => formData.start_date, () => formData.end_date], ([s, e]) => {
   }
 })
 
+// 一键填充演示数据（测试提效）
+function fillDemo() {
+  const d = (offset: number) => {
+    const dt = new Date(Date.now() + offset * 86400000)
+    return dt.toISOString().slice(0, 10)
+  }
+  formData.city = '郑州'
+  formData.start_date = d(5)
+  formData.end_date = d(7)
+  formData.transportation = '公共交通'
+  formData.accommodation = '经济型酒店'
+  formData.preferences = ['历史文化', '美食']
+  formData.free_text_input = ''
+  message.success('已填入演示数据：郑州 3 天')
+}
+
 function validate(): boolean {
   errors.city = errors.start_date = errors.end_date = errors.form = ''
   if (!formData.city) errors.city = '填上目的地，我们才知道往哪查'
@@ -284,6 +301,7 @@ async function handleSubmit() {
     finishProgress()
     if (response.success && response.data) {
       sessionStorage.setItem('tripPlan', JSON.stringify(response.data))
+      savePlan(response.data) // 存入多方案列表（侧边栏可切换）
       router.push('/result')
     } else {
       errors.form = response.message || '生成失败，请重试'
@@ -342,6 +360,15 @@ async function handleSubmit() {
 .sheet__meta{font-size:13px;color:#86868b;}
 
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px 24px;}
+.field--daysrow{align-items:flex-start;}
+.days-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,122,255,.1);
+  color:#007AFF;border-radius:980px;padding:9px 20px;font-size:15px;font-weight:600;
+  font-variant-numeric:tabular-nums;}
+.fill-demo{background:rgba(0,122,255,.1);border:0;border-radius:980px;color:#007AFF;
+  font-family:inherit;font-size:13px;font-weight:600;padding:8px 16px;cursor:pointer;
+  transition:filter .25s var(--ease-apple);}
+.fill-demo:hover{filter:brightness(1.05);}
+.fill-demo:focus-visible{outline:2px solid #007AFF;outline-offset:2px;}
 .field{display:flex;flex-direction:column;gap:8px;border:0;padding:0;margin:0;min-width:0;}
 .field--full{grid-column:span 2;}
 .field__label{font-size:13px;font-weight:500;color:#6e6e73;}
