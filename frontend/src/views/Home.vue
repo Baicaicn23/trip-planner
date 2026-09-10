@@ -334,7 +334,7 @@ async function handleSubmit() {
 
 /* 表单节段：#f5f5f7 交替底 + 白卡 */
 .form-section{background:#f5f5f7;padding:88px 24px;}
-.sheet{max-width:720px;margin:0 auto;background:#fff;border-radius:18px;
+.sheet{max-width:720px;margin:0 auto;background:#fff;border-radius:24px;
   box-shadow:0 4px 24px rgba(0,0,0,.06);padding:36px 40px 32px;
   animation:rise .7s var(--ease-ios,cubic-bezier(.32,.72,0,1)) both;}
 .sheet__head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:26px;}
@@ -345,7 +345,7 @@ async function handleSubmit() {
 .field{display:flex;flex-direction:column;gap:8px;border:0;padding:0;margin:0;min-width:0;}
 .field--full{grid-column:span 2;}
 .field__label{font-size:13px;font-weight:500;color:#6e6e73;}
-.field__input{background:rgba(120,120,128,.12);border:0;border-radius:12px;
+.field__input{background:rgba(120,120,128,.12);border:0;border-radius:16px;
   padding:12px 14px;font-size:15px;color:#1d1d1f;font-family:inherit;
   transition:box-shadow .25s var(--ease-apple);}
 .field__input::placeholder{color:#86868b;}

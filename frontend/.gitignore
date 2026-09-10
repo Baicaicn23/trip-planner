@@ -30,3 +30,4 @@ dist-ssr
 
 # Environment (含高德Key，严禁入库)
 .env
+fonts/*.ttf

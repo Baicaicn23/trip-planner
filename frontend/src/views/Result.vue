@@ -20,7 +20,7 @@
     </header>
 
     <div v-if="tripPlan" class="dossier__body">
-      <!-- 侧边导航（sticky 细字） -->
+      <!-- 左：悬浮卡片侧边栏 -->
       <nav class="dossier__nav" aria-label="页面导航">
         <button
           v-for="item in navItems" :key="item.key"
@@ -36,6 +36,8 @@
         </template>
       </nav>
 
+
+
       <!-- 主内容 -->
       <main class="dossier__main">
         <!-- 行程概览 -->
@@ -45,9 +47,16 @@
             <span class="meta__k">日期</span>
             <span class="meta__v meta__v--mono">{{ tripPlan.start_date }} → {{ tripPlan.end_date }}</span>
           </div>
-          <div class="meta">
+          <div class="meta meta--top">
             <span class="meta__k">建议</span>
-            <span class="meta__v">{{ tripPlan.overall_suggestions }}</span>
+            <div class="sug">
+              <div v-for="b in suggestionBlocks" :key="b.title" class="sug__block">
+                <span class="sug__title">{{ b.title }}</span>
+                <ul class="sug__list">
+                  <li v-for="(it, i) in b.items" :key="i">{{ it }}</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -155,14 +164,44 @@
           <h2 class="panel__title">天气信息</h2>
           <div class="weather">
             <div v-for="w in tripPlan.weather_info" :key="w.date" class="wcard">
-              <div class="wcard__date">{{ w.date }}</div>
-              <div class="wcard__row"><Sun :size="15" class="wcard__ic" /><div><em>白天</em>{{ w.day_weather }} {{ w.day_temp }}°C</div></div>
-              <div class="wcard__row"><Moon :size="15" class="wcard__ic" /><div><em>夜间</em>{{ w.night_weather }} {{ w.night_temp }}°C</div></div>
-              <div class="wcard__row"><Wind :size="15" class="wcard__ic" /><div><em>风</em>{{ w.wind_direction }} {{ w.wind_power }}</div></div>
+              <div class="wcard__top">
+                <span class="wcard__date">{{ w.date.slice(5) }}</span>
+                <Sun :size="20" :stroke-width="1.8" class="wcard__sun" />
+              </div>
+              <div class="wcard__temp">{{ w.day_temp }}<i>°</i></div>
+              <div class="wcard__cond">{{ w.day_weather }}</div>
+              <div class="wcard__divider"></div>
+              <div class="wcard__row"><Moon :size="14" class="wcard__ic" /><span>夜间 {{ w.night_weather }} {{ w.night_temp }}°</span></div>
+              <div class="wcard__row"><Wind :size="14" class="wcard__ic" /><span>{{ w.wind_direction }} {{ w.wind_power }}</span></div>
             </div>
           </div>
         </section>
       </main>
+
+      <!-- 右：AI 规划助手（模拟界面，功能即将上线） -->
+      <aside class="copilot">
+        <div class="copilot__head">
+          <span class="copilot__dot"></span>
+          <span class="copilot__name">规划助手</span>
+          <span class="copilot__badge">AI</span>
+        </div>
+        <div class="copilot__chat">
+          <div class="bubble bubble--ai">
+            你好，我是你的规划助手。这份{{ tripPlan.city }}行程已生成，
+            可以试试问我：「第二天下雨怎么办？」
+          </div>
+          <div class="bubble bubble--me">带老人出行，节奏能慢一点吗？</div>
+          <div class="bubble bubble--ai bubble--pending">
+            <span class="typing"><i></i><i></i><i></i></span>
+            该功能即将上线
+          </div>
+        </div>
+        <div class="copilot__input">
+          <input type="text" placeholder="问问你的行程…" disabled />
+          <button disabled>发送</button>
+        </div>
+        <p class="copilot__note">智能对话 · 即将上线</p>
+      </aside>
     </div>
 
     <!-- 空态 -->
@@ -222,14 +261,36 @@ function buildBudgetCells(plan: TripPlan) {
   ]
 }
 
+/* 建议 → 结构化小节：LLM 常用【标题】内容组织文本，解析成块渲染；
+   块内再按 "1." 编号拆条目，排版就分点了 */
+const suggestionBlocks = ref<{ title: string; items: string[] }[]>([])
+function buildSuggestions(text: string) {
+  const blocks: { title: string; items: string[] }[] = []
+  const re = /【([^】]+)】([^【]*)/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text))) {
+    const title = m[1].trim()
+    const body = m[2].trim()
+    const items = body
+      .split(/(?=(?:[1-9]|1[0-2])\.)/)
+      .map(t => t.replace(/^\s*[0-9]+\.\s*/, '').trim())
+      .filter(Boolean)
+    blocks.push({ title, items: items.length ? items : [body] })
+  }
+  suggestionBlocks.value = blocks.length
+    ? blocks
+    : [{ title: '总体建议', items: [text] }]
+}
+
 onMounted(async () => {
   const data = sessionStorage.getItem('tripPlan')
   if (data) {
     tripPlan.value = JSON.parse(data)
     buildBudgetCells(tripPlan.value)
-    await loadAttractionPhotos()
+    buildSuggestions(tripPlan.value.overall_suggestions || '')
     await nextTick()
-    initMap()
+    initMap()                 // 地图先行，不等图片
+    loadAttractionPhotos()    // 图片并行补
   }
   window.addEventListener('scroll', onScroll, { passive: true })
 })
@@ -328,8 +389,8 @@ const loadAttractionPhotos = async () => {
 const getAttractionImage = (name: string, index: number): string => {
   if (attractionPhotos.value[name]) return attractionPhotos.value[name]
   const pairs = [
-    ['#2a3550', '#0f1626'], ['#4a2c1a', '#160f0a'], ['#1c3a3a', '#0c1616'],
-    ['#3d2a4a', '#140f1c'], ['#4a3a1a', '#1a140a']
+    ['#dce9ff', '#c3daff'], ['#ffeeda', '#ffdfc0'], ['#dcf2e4', '#bfe8cf'],
+    ['#efe6ff', '#dfceff'], ['#ffe3e3', '#ffcaca']
   ]
   const [start, end] = pairs[index % pairs.length]
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300">
@@ -338,7 +399,7 @@ const getAttractionImage = (name: string, index: number): string => {
     </linearGradient></defs>
     <rect width="400" height="300" fill="url(#g${index})"/>
     <text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle"
-      font-family="'PingFang SC',sans-serif" font-size="26" font-weight="700" fill="rgba(232,236,244,.9)">${name}</text>
+      font-family="'Maple Mono NF CN',monospace" font-size="24" font-weight="700" fill="rgba(29,29,31,.72)">${name}</text>
   </svg>`
   return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`
 }
@@ -425,22 +486,26 @@ const exportAsPDF = async () => {
 
 /* ── 高德地图：dark 底 + 橙色标记，融入世界 ── */
 const initMap = async () => {
+  const box = document.getElementById('amap-container')
+  const withTimeout = <T,>(p: Promise<T>, ms: number) =>
+    Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error('地图加载超时（需要外网）')), ms))])
   try {
-    const AMap = await AMapLoader.load({
+    const AMap = await withTimeout(AMapLoader.load({
       key: import.meta.env.VITE_AMAP_WEB_JS_KEY,
       version: '2.0',
       plugins: ['AMap.Marker', 'AMap.Polyline', 'AMap.InfoWindow']
-    })
+    }), 15000)
     map = new AMap.Map('amap-container', {
       zoom: 12,
       center: [113.625368, 34.746573], // 默认中心点（郑州）
-      viewMode: '3D',
+      viewMode: '2D',
       mapStyle: 'amap://styles/whitesmoke'   // 浅色底图，融入 Apple 风
     })
     addAttractionMarkers(AMap)
     message.success('地图加载成功')
-  } catch (error) {
+  } catch (error: any) {
     console.error('地图加载失败:', error)
+    if (box) box.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#86868b;font-size:14px;">地图加载失败：请检查网络（高德服务需要外网）后刷新重试</div>'
     message.error('地图加载失败')
   }
 }
@@ -461,10 +526,11 @@ const addAttractionMarkers = (AMap: any) => {
     const marker = new AMap.Marker({
       position: [attraction.location.longitude, attraction.location.latitude],
       title: attraction.name,
-      label: {
-        content: `<div style="background:#007AFF;color:#fff;padding:3px 8px;border-radius:980px;font-size:12px;font-weight:700;">${index + 1}</div>`,
-        offset: new AMap.Pixel(0, -30)
-      }
+      anchor: 'center',
+      content: `<div style="width:28px;height:28px;border-radius:50%;background:#fff;
+        border:2.5px solid #007AFF;color:#007AFF;display:flex;align-items:center;justify-content:center;
+        font-size:13px;font-weight:700;font-family:'Maple Mono NF CN',monospace;
+        box-shadow:0 2px 8px rgba(0,122,255,.35);">${index + 1}</div>`
     })
     const infoWindow = new AMap.InfoWindow({
       content: `
@@ -493,35 +559,54 @@ const drawRoutes = (AMap: any, attractions: any[]) => {
     if (!dayGroups[attr.dayIndex]) dayGroups[attr.dayIndex] = []
     dayGroups[attr.dayIndex].push(attr)
   })
+  // 弧形细虚线：相邻点间用二次贝塞尔曲线采样，向右侧拱起，柔和不遮挡
+  const arcPoints = (a: any, b: any): [number, number][] => {
+    const [x1, y1] = [a.location.longitude, a.location.latitude]
+    const [x2, y2] = [b.location.longitude, b.location.latitude]
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2
+    const dx = x2 - x1, dy = y2 - y1
+    const len = Math.hypot(dx, dy) || 1
+    const k = len * 0.16                    // 拱高与距离成正比
+    const cx = mx + (dy / len) * k, cy = my - (dx / len) * k
+    const pts: [number, number][] = []
+    for (let t = 0; t <= 1.0001; t += 0.05) {
+      const u = 1 - t
+      pts.push([
+        u * u * x1 + 2 * u * t * cx + t * t * x2,
+        u * u * y1 + 2 * u * t * cy + t * t * y2
+      ])
+    }
+    return pts
+  }
   Object.keys(dayGroups).forEach(dayIdx => {
     const list = dayGroups[dayIdx].sort((a: any, b: any) => a.attrIndex - b.attrIndex)
-    if (list.length < 2) return
-    const path = list.map((a: any) => new AMap.LngLat(a.location.longitude, a.location.latitude))
-    const polyline = new AMap.Polyline({
-      path,
-      strokeColor: '#007AFF',
-      strokeWeight: 3,
-      strokeOpacity: 0.85,
-      strokeStyle: 'dashed',
-      showDir: true
-    })
-    map.add(polyline)
+    for (let i = 0; i < list.length - 1; i++) {
+      const polyline = new AMap.Polyline({
+        path: arcPoints(list[i], list[i + 1]),
+        strokeColor: '#007AFF',
+        strokeWeight: 2,
+        strokeOpacity: 0.75,
+        strokeStyle: 'dashed'
+      })
+      map.add(polyline)
+    }
   })
 }
 </script>
 
 <style scoped>
-/* ═══ Apple 风浅色 · token 见 ~/.zcode/skills/apple-web-design/references ═══ */
+/* ═══ Apple 风浅色 v2 · 大圆角统一 · 三栏布局 ═══ */
 .dossier{min-height:100vh;background:#fff;color:#1d1d1f;--ease-apple:cubic-bezier(.25,.1,.25,1);
-  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",
-  "PingFang SC","Microsoft YaHei",sans-serif;}
+  --r-lg:24px;--r-md:16px;
+  font-family:'Maple Mono NF CN',-apple-system,BlinkMacSystemFont,"PingFang SC",
+  "Microsoft YaHei",sans-serif;}
 
-/* 顶栏：毛玻璃 */
+/* 顶栏 */
 .dossier__bar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:16px;
-  padding:12px 32px;background:rgba(255,255,255,.72);
+  padding:12px 28px;background:rgba(255,255,255,.72);
   backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);
   border-bottom:1px solid rgba(60,60,67,.12);}
-.dossier__mark{font-size:13px;font-weight:600;color:#1d1d1f;letter-spacing:.02em;}
+.dossier__mark{font-size:13px;font-weight:600;color:#1d1d1f;}
 .bar-actions{margin-left:auto;display:flex;gap:8px;}
 .bar-btn{display:inline-flex;align-items:center;gap:7px;background:rgba(120,120,128,.12);
   border:0;border-radius:980px;color:#1d1d1f;font-family:inherit;font-size:13px;
@@ -531,35 +616,84 @@ const drawRoutes = (AMap: any, attractions: any[]) => {
 .bar-btn--accent{background:#007AFF;color:#fff;}
 .bar-btn--accent:hover{filter:brightness(1.08);}
 
-/* 布局 */
-.dossier__body{display:grid;grid-template-columns:172px minmax(0,1fr);
-  gap:28px;width:min(1240px,100% - 64px);margin:28px auto;}
-.dossier__nav{position:sticky;top:76px;align-self:start;display:flex;flex-direction:column;gap:2px;}
-.nav__item{background:transparent;border:0;text-align:left;cursor:pointer;
-  font-family:inherit;font-size:13px;color:#6e6e73;padding:8px 12px;
-  border-radius:980px;transition:all .25s var(--ease-apple);}
-.nav__item:hover{background:rgba(120,120,128,.12);color:#1d1d1f;}
-.nav__item.is-active{background:rgba(0,122,255,.12);color:#007AFF;font-weight:600;}
-.nav__item--sub{padding-left:24px;color:#86868b;}
+/* 三栏：悬浮左栏 / 主列 / AI 右栏 */
+.dossier__body{display:grid;grid-template-columns:190px minmax(0,1fr) 300px;
+  gap:24px;width:min(1400px,100% - 56px);margin:24px auto;align-items:start;}
 
-/* 面板：白卡轻投影 */
-.dossier__main{display:flex;flex-direction:column;gap:26px;min-width:0;}
-.panel{background:#fff;border-radius:18px;box-shadow:0 4px 24px rgba(0,0,0,.06);
+/* 左：悬浮卡片侧边栏 */
+.dossier__nav{position:sticky;top:76px;display:flex;flex-direction:column;gap:2px;
+  background:#fff;border-radius:var(--r-lg);box-shadow:0 4px 24px rgba(0,0,0,.07);
+  padding:14px 12px;}
+.nav__item{background:transparent;border:0;text-align:left;cursor:pointer;
+  font-family:inherit;font-size:13px;color:#6e6e73;padding:9px 14px;
+  border-radius:12px;transition:all .25s var(--ease-apple);}
+.nav__item:hover{background:rgba(120,120,128,.12);color:#1d1d1f;}
+.nav__item.is-active{background:rgba(0,122,255,.13);color:#007AFF;font-weight:600;}
+.nav__item--sub{padding-left:26px;color:#86868b;}
+
+/* 右：AI 规划助手（模拟） */
+.copilot{position:sticky;top:76px;display:flex;flex-direction:column;
+  background:#fff;border-radius:var(--r-lg);box-shadow:0 4px 24px rgba(0,0,0,.07);
+  padding:18px 16px 14px;max-height:calc(100vh - 110px);}
+.copilot__head{display:flex;align-items:center;gap:8px;padding-bottom:12px;
+  border-bottom:1px solid rgba(60,60,67,.1);margin-bottom:12px;}
+.copilot__dot{width:8px;height:8px;border-radius:50%;background:#34C759;}
+.copilot__name{font-size:14px;font-weight:700;color:#1d1d1f;}
+.copilot__badge{margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.1em;
+  background:linear-gradient(135deg,#007AFF,#5ac8fa);color:#fff;
+  border-radius:6px;padding:2px 7px;}
+.copilot__chat{display:flex;flex-direction:column;gap:10px;overflow-y:auto;
+  flex:1;min-height:120px;padding-right:2px;}
+.bubble{max-width:88%;padding:10px 13px;font-size:12.5px;line-height:1.75;
+  border-radius:16px;}
+.bubble--ai{background:#f5f5f7;color:#1d1d1f;border-top-left-radius:5px;align-self:flex-start;}
+.bubble--me{background:#007AFF;color:#fff;border-top-right-radius:5px;align-self:flex-end;}
+.bubble--pending{color:#86868b;}
+.typing{display:inline-flex;gap:4px;margin-right:8px;vertical-align:middle;}
+.typing i{width:5px;height:5px;border-radius:50%;background:#86868b;
+  animation:blink 1.2s infinite;}
+.typing i:nth-child(2){animation-delay:.2s;}
+.typing i:nth-child(3){animation-delay:.4s;}
+@keyframes blink{0%,80%,100%{opacity:.3;}40%{opacity:1;}}
+.copilot__input{display:flex;gap:8px;margin-top:12px;}
+.copilot__input input{flex:1;background:rgba(120,120,128,.12);border:0;
+  border-radius:12px;padding:10px 12px;font-size:12.5px;font-family:inherit;color:#1d1d1f;}
+.copilot__input input::placeholder{color:#86868b;}
+.copilot__input button{background:rgba(120,120,128,.2);border:0;border-radius:12px;
+  color:#86868b;font-family:inherit;font-size:12px;padding:0 14px;cursor:not-allowed;}
+.copilot__note{font-size:10.5px;color:#86868b;text-align:center;margin:10px 0 0;
+  letter-spacing:.15em;}
+
+/* 主列 */
+.dossier__main{display:flex;flex-direction:column;gap:24px;min-width:0;}
+.panel{background:#fff;border-radius:var(--r-lg);box-shadow:0 4px 24px rgba(0,0,0,.06);
   padding:26px 30px;animation:rise .7s var(--ease-ios,cubic-bezier(.32,.72,0,1)) both;}
 .panel:nth-child(2){animation-delay:.08s;}
 .panel:nth-child(3){animation-delay:.16s;}
 .panel:nth-child(4){animation-delay:.24s;}
-.panel__title{font-size:22px;font-weight:700;letter-spacing:-.02em;color:#1d1d1f;
+.panel__title{font-size:21px;font-weight:700;letter-spacing:-.02em;color:#1d1d1f;
   margin:0 0 18px;}
 
 .meta{display:flex;gap:16px;margin-bottom:12px;}
+.meta--top{align-items:flex-start;}
 .meta__k{flex:0 0 44px;font-size:13px;color:#86868b;padding-top:2px;}
 .meta__v{font-size:15px;line-height:1.8;color:#1d1d1f;}
 .meta__v--mono{font-variant-numeric:tabular-nums;letter-spacing:.04em;}
 
+/* 建议分点 */
+.sug{display:flex;flex-direction:column;gap:14px;flex:1;}
+.sug__block{background:#f5f5f7;border-radius:var(--r-md);padding:14px 18px;}
+.sug__title{display:inline-block;font-size:13px;font-weight:700;color:#007AFF;
+  margin-bottom:8px;}
+.sug__list{margin:0;padding:0;list-style:none;}
+.sug__list li{position:relative;font-size:13.5px;line-height:1.85;color:#1d1d1f;
+  padding-left:16px;margin-bottom:4px;}
+.sug__list li::before{content:'';position:absolute;left:2px;top:.75em;
+  width:5px;height:5px;border-radius:50%;background:rgba(0,122,255,.5);}
+
 /* 预算 */
 .budget{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
-.budget__cell{background:#f5f5f7;border-radius:12px;padding:16px 18px;}
+.budget__cell{background:#f5f5f7;border-radius:var(--r-md);padding:16px 18px;}
 .budget__label{display:block;font-size:13px;color:#6e6e73;margin-bottom:8px;}
 .budget__num{font-size:24px;font-weight:600;color:#1d1d1f;font-variant-numeric:tabular-nums;}
 .budget__total{display:flex;justify-content:space-between;align-items:baseline;
@@ -568,11 +702,11 @@ const drawRoutes = (AMap: any, attractions: any[]) => {
 .budget__total-v{font-size:36px;font-weight:700;color:#007AFF;font-variant-numeric:tabular-nums;}
 
 /* 地图 */
-.panel--map .amap-box{width:100%;height:420px;border-radius:12px;overflow:hidden;}
+.panel--map .amap-box{width:100%;height:440px;border-radius:var(--r-md);overflow:hidden;}
 
-/* 每日行程手风琴 */
-.day{background:#f5f5f7;border-radius:14px;margin-bottom:12px;overflow:hidden;
-  transition:box-shadow .3s var(--ease-apple);}
+/* 每日行程 */
+.day{background:#f5f5f7;border-radius:var(--r-lg);margin-bottom:14px;overflow:hidden;
+  transition:box-shadow .3s var(--ease-apple),background .3s var(--ease-apple);}
 .day.is-open{background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.06);}
 .day__head{display:flex;align-items:center;gap:16px;width:100%;
   background:transparent;border:0;padding:18px 22px;cursor:pointer;
@@ -590,17 +724,17 @@ const drawRoutes = (AMap: any, attractions: any[]) => {
 .day.is-open .day__inner{padding:4px 22px 24px;}
 
 .meta-row{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;
-  border-bottom:1px solid rgba(60,60,67,.12);padding-bottom:14px;margin-bottom:16px;}
+  border-bottom:1px solid rgba(60,60,67,.1);padding-bottom:14px;margin-bottom:16px;}
 .meta-row__k{font-size:13px;color:#86868b;}
 .meta-row__v{font-size:14px;line-height:1.7;color:#1d1d1f;}
 .day__sub{font-size:13px;font-weight:600;color:#6e6e73;margin:20px 0 14px;
   display:flex;align-items:center;gap:12px;}
-.day__sub::after{content:'';flex:1;height:1px;background:rgba(60,60,67,.12);}
+.day__sub::after{content:'';flex:1;height:1px;background:rgba(60,60,67,.1);}
 
-/* 景点卡 */
+/* 景点卡：浅色图片 + 大圆角 */
 .spots{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;}
 .spot{position:relative;display:grid;grid-template-columns:132px 1fr;gap:14px;
-  background:#fff;border:1px solid rgba(60,60,67,.1);border-radius:14px;padding:12px;
+  background:#fff;border:1px solid rgba(60,60,67,.08);border-radius:var(--r-md);padding:12px;
   transition:box-shadow .3s var(--ease-apple),transform .3s var(--ease-apple);}
 .spot:hover{box-shadow:0 8px 32px rgba(0,0,0,.10);transform:translateY(-2px);}
 .spot__ops{position:absolute;top:8px;right:8px;display:flex;gap:6px;z-index:2;}
@@ -610,13 +744,13 @@ const drawRoutes = (AMap: any, attractions: any[]) => {
 .op:hover:not(:disabled){border-color:#007AFF;color:#007AFF;}
 .op:disabled{opacity:.3;cursor:not-allowed;}
 .op--danger:hover:not(:disabled){border-color:#FF3B30;color:#FF3B30;}
-.spot__pic{position:relative;border-radius:10px;overflow:hidden;}
+.spot__pic{position:relative;border-radius:12px;overflow:hidden;}
 .spot__pic img{display:block;width:100%;height:132px;object-fit:cover;}
 .spot__no{position:absolute;left:8px;top:8px;width:22px;height:22px;
   display:flex;align-items:center;justify-content:center;
   background:#007AFF;color:#fff;font-size:12px;font-weight:700;border-radius:980px;
   font-variant-numeric:tabular-nums;}
-.spot__price{position:absolute;right:0;bottom:0;background:rgba(255,255,255,.9);
+.spot__price{position:absolute;right:0;bottom:0;background:rgba(255,255,255,.92);
   color:#1d1d1f;font-size:12px;font-weight:600;padding:3px 9px;
   font-variant-numeric:tabular-nums;}
 .spot__name{font-size:15px;font-weight:600;color:#1d1d1f;margin:2px 0 8px;}
@@ -624,33 +758,40 @@ const drawRoutes = (AMap: any, attractions: any[]) => {
 .spot__line span{color:#86868b;margin-right:10px;font-size:12px;}
 .spot__line--desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .spot__field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#6e6e73;margin-bottom:8px;}
-.spot__input{background:rgba(120,120,128,.12);border:0;border-radius:8px;
+.spot__input{background:rgba(120,120,128,.12);border:0;border-radius:10px;
   color:#1d1d1f;font-family:inherit;font-size:13px;padding:7px 10px;}
 .spot__input:focus{outline:none;box-shadow:0 0 0 3px rgba(0,122,255,.25);}
 
 /* 酒店 / 餐饮 */
-.hotel{background:#f5f5f7;border-radius:14px;padding:16px 20px;}
+.hotel{background:#f5f5f7;border-radius:var(--r-md);padding:16px 20px;}
 .hotel__name{font-size:15px;font-weight:600;color:#1d1d1f;}
 .hotel__facts{display:flex;gap:18px;flex-wrap:wrap;margin:8px 0 6px;
   font-size:12px;color:#6e6e73;font-variant-numeric:tabular-nums;}
 .hotel__addr{font-size:13px;color:#6e6e73;margin:0;}
 .meals{display:flex;flex-direction:column;}
 .meal{display:flex;gap:16px;align-items:baseline;padding:10px 0;
-  border-bottom:1px solid rgba(60,60,67,.1);}
+  border-bottom:1px dashed rgba(60,60,67,.12);}
 .meal:last-child{border-bottom:0;}
 .meal__type{flex:0 0 44px;font-size:12px;color:#007AFF;font-weight:600;}
 .meal__name{font-size:14px;color:#1d1d1f;font-weight:600;}
 .meal__desc{font-size:13px;color:#6e6e73;}
 
-/* 天气 */
-.weather{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;}
-.wcard{background:#f5f5f7;border-radius:14px;padding:16px 18px;}
-.wcard__date{font-size:13px;font-weight:600;color:#1d1d1f;margin-bottom:10px;
+/* 天气：iOS 天气 App 风（蓝底白字大温度） */
+.weather{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;}
+.wcard{border-radius:20px;padding:18px 18px 14px;color:#fff;
+  background:linear-gradient(180deg,#59a7f2 0%,#8ec9f7 100%);
+  box-shadow:0 8px 24px rgba(89,167,242,.35);}
+.wcard__top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.wcard__date{font-size:13px;color:rgba(255,255,255,.9);}
+.wcard__sun{color:rgba(255,255,255,.95);}
+.wcard__temp{font-size:46px;font-weight:600;line-height:1.05;
   font-variant-numeric:tabular-nums;}
-.wcard__row{display:flex;gap:10px;align-items:center;margin-bottom:8px;
-  font-size:13px;color:#1d1d1f;}
-.wcard__row em{font-style:normal;color:#86868b;margin-right:8px;font-size:12px;}
-.wcard__ic{color:#007AFF;flex-shrink:0;}
+.wcard__temp i{font-style:normal;font-size:26px;vertical-align:.42em;}
+.wcard__cond{font-size:13px;color:rgba(255,255,255,.92);margin:2px 0 12px;}
+.wcard__divider{height:1px;background:rgba(255,255,255,.3);margin-bottom:10px;}
+.wcard__row{display:flex;gap:9px;align-items:center;font-size:12.5px;
+  color:rgba(255,255,255,.95);margin-bottom:7px;}
+.wcard__ic{color:rgba(255,255,255,.85);flex-shrink:0;}
 
 /* 空态 / 回顶部 */
 .dossier__empty{min-height:70vh;display:flex;flex-direction:column;gap:18px;
@@ -662,13 +803,16 @@ const drawRoutes = (AMap: any, attractions: any[]) => {
   backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);
   box-shadow:0 4px 24px rgba(0,0,0,.08);transition:all .25s var(--ease-apple);}
 .to-top:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.12);}
-.to-top:focus-visible{outline:2px solid #007AFF;outline-offset:2px;}
 
 @keyframes rise{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
 
 @media (prefers-reduced-motion:reduce){
   .panel{animation:none;}
   .bar-btn,.spot,.to-top{transition:none;}
+}
+@media (max-width:1280px){
+  .dossier__body{grid-template-columns:180px minmax(0,1fr);}
+  .copilot{display:none;}
 }
 @media (max-width:1024px){
   .dossier__body{grid-template-columns:1fr;}
