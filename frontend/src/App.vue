@@ -7,17 +7,11 @@
 </script>
 
 <style>
-#app {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    'Noto Sans', sans-serif;
-}
-
-/* 浏览器原生部件也属于这个设计世界：选中/焦点/滚动条主题化 */
-::selection {
-  background: #ff7a45;
-  color: #0a0e1a;
-}
+:root { color-scheme: light; }
 html {
-  scrollbar-color: rgba(232, 236, 244, 0.3) #0a0e1a;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  scrollbar-color: rgba(0,0,0,.28) #f5f5f7;
 }
+::selection { background: rgba(0,122,255,.22); color: #1d1d1f; }
 </style>
