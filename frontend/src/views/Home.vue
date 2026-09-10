@@ -1,238 +1,155 @@
 <template>
-  <div class="home-container">
-    <!-- 背景装饰 -->
-    <div class="bg-decoration">
-      <div class="circle circle-1"></div>
-      <div class="circle circle-2"></div>
-      <div class="circle circle-3"></div>
-    </div>
+  <div class="portal" :class="{ 'no-webgl': !webglOk }">
+    <!-- 呼吸色场：全屏 WebGL 片元着色器（降级=静态曙光渐变） -->
+    <canvas ref="glCanvas" class="portal__field" aria-hidden="true"></canvas>
 
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <div class="icon-wrapper">
-        <span class="icon">✈️</span>
-      </div>
-      <h1 class="page-title">智能旅行助手</h1>
-      <p class="page-subtitle">基于AI的个性化旅行规划,让每一次出行都完美无忧</p>
-    </div>
+    <!-- 角标：细字身份条 -->
+    <header class="portal__corners">
+      <span class="brand">
+        HELLOAGENTS<i class="brand__dot"></i>
+        <span class="brand__cn">智能旅行助手</span>
+      </span>
+      <span class="corner-note">LOCAL DEMO · :8000</span>
+    </header>
 
-    <a-card class="form-card" :bordered="false">
-      <a-form
-        :model="formData"
-        layout="vertical"
-        @finish="handleSubmit"
-      >
-        <!-- 第一步:目的地和日期 -->
-        <div class="form-section">
-          <div class="section-header">
-            <span class="section-icon">📍</span>
-            <span class="section-title">目的地与日期</span>
-          </div>
+    <!-- 主区：超大单字 + 细字规格 + 悬浮表单 -->
+    <main class="portal__stage">
+      <section class="portal__copy">
+        <h1 class="portal__title">出发<span class="portal__period">。</span></h1>
+        <p class="portal__sub">告诉我你想去哪。四个 AI 专员，二十八秒，一份完整行程。</p>
+        <ul class="portal__spec" aria-label="系统规格">
+          <li>04 AGENTS · 串行流水线</li>
+          <li>16 MAP TOOLS · 高德 MCP</li>
+          <li>~28S · 完整行程生成</li>
+        </ul>
+      </section>
 
-          <a-row :gutter="24">
-            <a-col :span="8">
-              <a-form-item name="city" :rules="[{ required: true, message: '请输入目的地城市' }]">
-                <template #label>
-                  <span class="form-label">目的地城市</span>
-                </template>
-                <a-input
-                  v-model:value="formData.city"
-                  placeholder="例如: 北京"
-                  size="large"
-                  class="custom-input"
-                >
-                  <template #prefix>
-                    <span style="color: #1890ff;">🏙️</span>
-                  </template>
-                </a-input>
-              </a-form-item>
-            </a-col>
-            <a-col :span="6">
-              <a-form-item name="start_date" :rules="[{ required: true, message: '请选择开始日期' }]">
-                <template #label>
-                  <span class="form-label">开始日期</span>
-                </template>
-                <a-date-picker
-                  v-model:value="formData.start_date"
-                  style="width: 100%"
-                  size="large"
-                  class="custom-input"
-                  placeholder="选择日期"
-                />
-              </a-form-item>
-            </a-col>
-            <a-col :span="6">
-              <a-form-item name="end_date" :rules="[{ required: true, message: '请选择结束日期' }]">
-                <template #label>
-                  <span class="form-label">结束日期</span>
-                </template>
-                <a-date-picker
-                  v-model:value="formData.end_date"
-                  style="width: 100%"
-                  size="large"
-                  class="custom-input"
-                  placeholder="选择日期"
-                />
-              </a-form-item>
-            </a-col>
-            <a-col :span="4">
-              <a-form-item>
-                <template #label>
-                  <span class="form-label">旅行天数</span>
-                </template>
-                <div class="days-display-compact">
-                  <span class="days-value">{{ formData.travel_days }}</span>
-                  <span class="days-unit">天</span>
-                </div>
-              </a-form-item>
-            </a-col>
-          </a-row>
+      <form class="sheet" novalidate @submit.prevent="handleSubmit">
+        <div class="sheet__head">
+          <span class="sheet__no">FORM · 8 FIELDS</span>
+          <span class="sheet__title">旅行申请表</span>
         </div>
 
-        <!-- 第二步:偏好设置 -->
-        <div class="form-section">
-          <div class="section-header">
-            <span class="section-icon">⚙️</span>
-            <span class="section-title">偏好设置</span>
-          </div>
-
-          <a-row :gutter="24">
-            <a-col :span="8">
-              <a-form-item name="transportation">
-                <template #label>
-                  <span class="form-label">交通方式</span>
-                </template>
-                <a-select v-model:value="formData.transportation" size="large" class="custom-select">
-                  <a-select-option value="公共交通">🚇 公共交通</a-select-option>
-                  <a-select-option value="自驾">🚗 自驾</a-select-option>
-                  <a-select-option value="步行">🚶 步行</a-select-option>
-                  <a-select-option value="混合">🔀 混合</a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-            <a-col :span="8">
-              <a-form-item name="accommodation">
-                <template #label>
-                  <span class="form-label">住宿偏好</span>
-                </template>
-                <a-select v-model:value="formData.accommodation" size="large" class="custom-select">
-                  <a-select-option value="经济型酒店">💰 经济型酒店</a-select-option>
-                  <a-select-option value="舒适型酒店">🏨 舒适型酒店</a-select-option>
-                  <a-select-option value="豪华酒店">⭐ 豪华酒店</a-select-option>
-                  <a-select-option value="民宿">🏡 民宿</a-select-option>
-                </a-select>
-              </a-form-item>
-            </a-col>
-            <a-col :span="8">
-              <a-form-item name="preferences">
-                <template #label>
-                  <span class="form-label">旅行偏好</span>
-                </template>
-                <div class="preference-tags">
-                  <a-checkbox-group v-model:value="formData.preferences" class="custom-checkbox-group">
-                    <a-checkbox value="历史文化" class="preference-tag">🏛️ 历史文化</a-checkbox>
-                    <a-checkbox value="自然风光" class="preference-tag">🏞️ 自然风光</a-checkbox>
-                    <a-checkbox value="美食" class="preference-tag">🍜 美食</a-checkbox>
-                    <a-checkbox value="购物" class="preference-tag">🛍️ 购物</a-checkbox>
-                    <a-checkbox value="艺术" class="preference-tag">🎨 艺术</a-checkbox>
-                    <a-checkbox value="休闲" class="preference-tag">☕ 休闲</a-checkbox>
-                  </a-checkbox-group>
-                </div>
-              </a-form-item>
-            </a-col>
-          </a-row>
-        </div>
-
-        <!-- 第三步:额外要求 -->
-        <div class="form-section">
-          <div class="section-header">
-            <span class="section-icon">💬</span>
-            <span class="section-title">额外要求</span>
-          </div>
-
-          <a-form-item name="free_text_input">
-            <a-textarea
-              v-model:value="formData.free_text_input"
-              placeholder="请输入您的额外要求,例如:想去看升旗、需要无障碍设施、对海鲜过敏等..."
-              :rows="3"
-              size="large"
-              class="custom-textarea"
+        <div class="grid">
+          <label class="field field--wide-name">
+            <span class="field__label">目的地城市</span>
+            <input
+              v-model.trim="formData.city"
+              type="text"
+              class="field__input"
+              placeholder="北京、郑州、成都…"
+              autocomplete="off"
             />
-          </a-form-item>
+            <span v-if="errors.city" class="field__err">{{ errors.city }}</span>
+          </label>
+
+          <div class="field field--days">
+            <span class="field__label">天数 · 自动</span>
+            <span class="field__days">{{ formData.travel_days }}<i>天</i></span>
+          </div>
+
+          <label class="field">
+            <span class="field__label">出发日期</span>
+            <input v-model="formData.start_date" type="date" class="field__input" :min="today" />
+            <span v-if="errors.start_date" class="field__err">{{ errors.start_date }}</span>
+          </label>
+
+          <label class="field">
+            <span class="field__label">返回日期</span>
+            <input v-model="formData.end_date" type="date" class="field__input" :min="formData.start_date || today" />
+            <span v-if="errors.end_date" class="field__err">{{ errors.end_date }}</span>
+          </label>
+
+          <fieldset class="field field--seg">
+            <legend class="field__label">交通方式</legend>
+            <div class="seg">
+              <button
+                v-for="t in TRANSPORT_OPTIONS" :key="t" type="button"
+                class="seg__item" :class="{ 'is-on': formData.transportation === t }"
+                @click="formData.transportation = t"
+              >{{ t }}</button>
+            </div>
+          </fieldset>
+
+          <fieldset class="field field--seg">
+            <legend class="field__label">住宿偏好</legend>
+            <div class="seg">
+              <button
+                v-for="a in STAY_OPTIONS" :key="a" type="button"
+                class="seg__item" :class="{ 'is-on': formData.accommodation === a }"
+                @click="formData.accommodation = a"
+              >{{ a }}</button>
+            </div>
+          </fieldset>
+
+          <fieldset class="field field--full">
+            <legend class="field__label">旅行偏好 · 可多选</legend>
+            <div class="chips">
+              <button
+                v-for="p in PREFERENCE_OPTIONS" :key="p" type="button"
+                class="chip" :class="{ 'is-on': formData.preferences.includes(p) }"
+                :aria-pressed="formData.preferences.includes(p)"
+                @click="togglePreference(p)"
+              >{{ p }}</button>
+            </div>
+          </fieldset>
+
+          <label class="field field--full">
+            <span class="field__label">额外要求 · 可留空</span>
+            <input
+              v-model.trim="formData.free_text_input"
+              type="text"
+              class="field__input"
+              placeholder="例如：想看升旗，不吃辣，带老人出行…"
+            />
+          </label>
         </div>
 
-        <!-- 提交按钮 -->
-        <a-form-item>
-          <a-button
-            type="primary"
-            html-type="submit"
-            :loading="loading"
-            size="large"
-            block
-            class="submit-button"
-          >
-            <template v-if="!loading">
-              <span class="button-icon">🚀</span>
-              <span>开始规划我的旅行</span>
-            </template>
-            <template v-else>
-              <span>正在生成中...</span>
-            </template>
-          </a-button>
-        </a-form-item>
+        <button type="submit" class="go" :class="{ 'is-busy': loading }" :disabled="loading">
+          <span v-if="!loading">开始规划</span>
+          <span v-else>规划中 · 四专员出动</span>
+        </button>
+        <p v-if="errors.form" class="sheet__form-err">{{ errors.form }}</p>
+      </form>
+    </main>
 
-        <!-- 加载进度条 -->
-        <a-form-item v-if="loading">
-          <div class="loading-container">
-            <a-progress
-              :percent="loadingProgress"
-              status="active"
-              :stroke-color="{
-                '0%': '#667eea',
-                '100%': '#764ba2',
-              }"
-              :stroke-width="10"
-            />
-            <p class="loading-status">
-              {{ loadingStatus }}
-            </p>
-          </div>
-        </a-form-item>
-      </a-form>
-    </a-card>
+    <footer class="portal__foot">
+      <span>FastAPI × Vue3 × MCP</span>
+      <span>四 Agent 流水线 · 数据来自高德地图真实接口</span>
+    </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-// ══════════ 首页表单 —— 店面的"点单页" ══════════
-// 【本文件是什么】Vue三段式页面：template(长什么样) + script(怎么动) + style(怎么美)。
-// 【使命】收8项需求 → 调api.ts打电话 → 存结果进sessionStorage → 跳结果页。
-// 【类比】外卖App的下单页：填地址选口味点提交，转圈等商家接单——一模一样的交互。
+// ══════════ Home · 着色器门户 ══════════
+// 世界：全屏呼吸色场（WebGL 片元着色器）上浮细字表单；光标搅动色场；
+// 提交后呼吸加速——为阶段二 SSE 真进度预留「色场渐亮=四Agent进度」的接口。
+// 业务逻辑与原版一致：8 字段 → generateTripPlan → sessionStorage → /result。
 
-import { ref, reactive, watch } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { generateTripPlan } from '@/services/api'
 import type { TripFormData } from '@/types'
-import type { Dayjs } from 'dayjs'
+import '@fontsource-variable/spline-sans-mono'
+import '@fontsource/noto-sans-sc/900.css'
+
+const TRANSPORT_OPTIONS = ['公共交通', '自驾', '步行', '混合'] as const
+const STAY_OPTIONS = ['经济型酒店', '舒适型酒店', '豪华酒店', '民宿'] as const
+const PREFERENCE_OPTIONS = ['历史文化', '自然风光', '美食', '购物', '艺术', '休闲'] as const
 
 const router = useRouter()
-// 三个"页面级变量"：ref让普通值变成响应式的——一改，页面自动跟着变
-const loading = ref(false)          // 提交按钮转不转圈
-const loadingProgress = ref(0)      // 进度条百分比
-const loadingStatus = ref('')       // 进度条下方那行字
+const loading = ref(false)
+const webglOk = ref(true)
+const glCanvas = ref<HTMLCanvasElement | null>(null)
 
-// 表单日期控件返回的是Dayjs对象(日历库的类型)，还不是字符串——所以先声明成Dayjs，提交时再转
-type TripFormState = Omit<TripFormData, 'start_date' | 'end_date'> & {
-  start_date: Dayjs | null
-  end_date: Dayjs | null
-}
+const today = new Date().toISOString().slice(0, 10)
 
-// 表单数据：reactive让整个对象响应式；输入框用v-model双向绑定到这里的字段
-const formData = reactive<TripFormState>({
+// 表单状态：日期用原生 date 控件（字符串 YYYY-MM-DD），省掉 Dayjs 转换层
+const formData = reactive<TripFormData>({
   city: '',
-  start_date: null,
-  end_date: null,
+  start_date: '',
+  end_date: '',
   travel_days: 1,
   transportation: '公共交通',
   accommodation: '经济型酒店',
@@ -240,430 +157,294 @@ const formData = reactive<TripFormState>({
   free_text_input: ''
 })
 
-// 监听日期变化,自动计算旅行天数
-// 【干什么用】选完起止日期，天数自动算好显示——还会先替后端把日期合法性检查一遍
-// 【类比】外卖App选配送时间自动算配送费：用户不用自己数天数
-watch([() => formData.start_date, () => formData.end_date], ([start, end]) => {
-  if (start && end) {
-    const days = end.diff(start, 'day') + 1
-    if (days > 0 && days <= 30) {
-      formData.travel_days = days
-    } else if (days > 30) {
-      message.warning('旅行天数不能超过30天')
-      formData.end_date = null
-    } else {
-      message.warning('结束日期不能早于开始日期')
-      formData.end_date = null
-    }
+const errors = reactive<Record<string, string>>({})
+
+function togglePreference(p: string) {
+  const i = formData.preferences.indexOf(p)
+  if (i >= 0) formData.preferences.splice(i, 1)
+  else formData.preferences.push(p)
+}
+
+// 日期联动：自动算天数；越界给出指明问题与恢复方式的人话提示
+watch([() => formData.start_date, () => formData.end_date], ([s, e]) => {
+  if (!s || !e) return
+  const days = Math.round((+new Date(e) - +new Date(s)) / 86400000) + 1
+  if (days > 30) {
+    message.warning('最多规划 30 天：请把返回日期提前')
+    formData.end_date = ''
+  } else if (days <= 0) {
+    message.warning('返回日期不能早于出发日期：请重新选择')
+    formData.end_date = ''
+  } else {
+    formData.travel_days = days
   }
 })
 
-// ══════════ 提交 —— 整个首页的灵魂函数 ══════════
-// 【干什么用】四步：开转圈+假进度条 → 把表单转成合规JSON(Dayjs→字符串) → 打电话等结果 →
-//            成功就把行程册存进sessionStorage(浏览器自带的"小储物柜")并跳结果页。
-// 【类比】外卖下单：点提交→转圈→商家接单→跳"订单详情"页。假进度条是安慰剂(教材13.6.2)：
-//            真实进度后端没法汇报，但转着圈用户就不焦虑。
-const handleSubmit = async () => {
-  if (!formData.start_date || !formData.end_date) {
-    message.error('请选择日期')
-    return
-  }
+function validate(): boolean {
+  errors.city = errors.start_date = errors.end_date = errors.form = ''
+  if (!formData.city) errors.city = '填上目的地，我们才知道往哪查'
+  if (!formData.start_date) errors.start_date = '选一下出发日期'
+  if (!formData.end_date) errors.end_date = '选一下返回日期'
+  return !errors.city && !errors.start_date && !errors.end_date
+}
 
+async function handleSubmit() {
+  if (!validate()) return
   loading.value = true
-  loadingProgress.value = 0
-  loadingStatus.value = '正在初始化...'
-
-  // 模拟进度更新
-  const progressInterval = setInterval(() => {
-    if (loadingProgress.value < 90) {
-      loadingProgress.value += 10
-
-      // 更新状态文本
-      if (loadingProgress.value <= 30) {
-        loadingStatus.value = '🔍 正在搜索景点...'
-      } else if (loadingProgress.value <= 50) {
-        loadingStatus.value = '🌤️ 正在查询天气...'
-      } else if (loadingProgress.value <= 70) {
-        loadingStatus.value = '🏨 正在推荐酒店...'
-      } else {
-        loadingStatus.value = '📋 正在生成行程计划...'
-      }
-    }
-  }, 500)
-
+  shaderSpeedTarget = 2.4 // 呼吸加速：色场开始「天亮」
   try {
-    const requestData: TripFormData = {
-      city: formData.city,
-      start_date: formData.start_date.format('YYYY-MM-DD'),
-      end_date: formData.end_date.format('YYYY-MM-DD'),
-      travel_days: formData.travel_days,
-      transportation: formData.transportation,
-      accommodation: formData.accommodation,
-      preferences: formData.preferences,
-      free_text_input: formData.free_text_input
-    }
-
-    const response = await generateTripPlan(requestData)
-
-    clearInterval(progressInterval)
-    loadingProgress.value = 100
-    loadingStatus.value = '✅ 完成!'
-
+    const response = await generateTripPlan({ ...formData })
     if (response.success && response.data) {
-      // 保存到sessionStorage
       sessionStorage.setItem('tripPlan', JSON.stringify(response.data))
-
-      message.success('旅行计划生成成功!')
-
-      // 短暂延迟后跳转
-      setTimeout(() => {
-        router.push('/result')
-      }, 500)
+      router.push('/result')
     } else {
-      message.error(response.message || '生成失败')
+      errors.form = response.message || '生成失败，请重试'
     }
-  } catch (error: any) {
-    clearInterval(progressInterval)
-    message.error(error.message || '生成旅行计划失败,请稍后重试')
+  } catch (err: any) {
+    errors.form = err?.message || '网络出了问题：请确认后端已启动后重试'
   } finally {
-    setTimeout(() => {
-      loading.value = false
-      loadingProgress.value = 0
-      loadingStatus.value = ''
-    }, 1000)
+    loading.value = false
+    shaderSpeedTarget = 1
   }
 }
+
+/* ─────────── 呼吸色场（WebGL 片元着色器） ─────────── */
+let raf = 0
+let gl: WebGLRenderingContext | null = null
+let uTime: WebGLUniformLocation | null = null
+let uMouse: WebGLUniformLocation | null = null
+let uSpeed: WebGLUniformLocation | null = null
+let uRes: WebGLUniformLocation | null = null
+let shaderSpeed = 1
+let shaderSpeedTarget = 1
+let mx = 0.5, my = 0.5, tmx = 0.5, tmy = 0.5
+
+const VERT = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}'
+const FRAG = `
+precision highp float;
+uniform vec2 uRes;uniform float uTime;uniform vec2 uMouse;uniform float uSpeed;
+float hash(vec2 v){return fract(sin(dot(v,vec2(127.1,311.7)))*43758.5453);}
+float noise(vec2 v){vec2 i=floor(v),f=fract(v);f=f*f*(3.-2.*f);
+  return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 v){float s=0.,a=.5;for(int i=0;i<5;i++){s+=a*noise(v);v*=2.03;a*=.5;}return s;}
+void main(){
+  vec2 p=(gl_FragCoord.xy-.5*uRes)/uRes.y;
+  vec2 m=(uMouse-.5)*vec2(uRes.x/uRes.y,1.);
+  float md=length(p-m);
+  p+=(p-m)*.10*exp(-md*3.2);
+  float t=uTime*.028*uSpeed;
+  float n1=fbm(p*1.7+vec2(t,-t*.6));
+  float n2=fbm(p*3.4-vec2(t*.7,t*.35)+n1);
+  float dawn=smoothstep(.32,.88,n1*n2*2.0);
+  vec3 base=vec3(.031,.047,.090);
+  vec3 cool=vec3(.13,.24,.38);
+  vec3 warm=vec3(1.0,.42,.23);
+  vec3 col=base+cool*n2*.30+warm*dawn*.38*uSpeed*.62;
+  col+=(hash(gl_FragCoord.xy+uTime)-.5)*.030;
+  gl_FragColor=vec4(col,1.);
+}`
+
+function initShader() {
+  const canvas = glCanvas.value
+  if (!canvas) return
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
+  gl = canvas.getContext('webgl', { antialias: false, alpha: false })
+  if (!gl) { webglOk.value = false; return }
+
+  const prog = gl.createProgram()!
+  for (const [type, src] of [
+    [gl.VERTEX_SHADER, VERT],
+    [gl.FRAGMENT_SHADER, FRAG]
+  ] as const) {
+    const s = gl.createShader(type)!
+    gl.shaderSource(s, src)
+    gl.compileShader(s)
+    gl.attachShader(prog, s)
+  }
+  gl.linkProgram(prog)
+  gl.useProgram(prog)
+
+  const buf = gl.createBuffer()
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW)
+  const loc = gl.getAttribLocation(prog, 'p')
+  gl.enableVertexAttribArray(loc)
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0)
+
+  uTime = gl.getUniformLocation(prog, 'uTime')
+  uMouse = gl.getUniformLocation(prog, 'uMouse')
+  uSpeed = gl.getUniformLocation(prog, 'uSpeed')
+  uRes = gl.getUniformLocation(prog, 'uRes')
+
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, window.innerWidth < 768 ? 1 : 1.5)
+    canvas!.width = Math.floor(window.innerWidth * dpr)
+    canvas!.height = Math.floor(window.innerHeight * dpr)
+    gl!.viewport(0, 0, canvas!.width, canvas!.height)
+  }
+  resize()
+  addEventListener('resize', resize)
+  const onMove = (e: PointerEvent) => {
+    tmx = e.clientX / window.innerWidth
+    tmy = 1 - e.clientY / window.innerHeight
+  }
+  addEventListener('pointermove', onMove)
+
+  if (reduced) {
+    // 减少动效：只渲染一帧静态色场
+    gl.uniform2f(uRes!, canvas.width, canvas.height)
+    gl.uniform1f(uTime!, 40)
+    gl.uniform2f(uMouse!, 0.5, 0.5)
+    gl.uniform1f(uSpeed!, 1)
+    gl.drawArrays(gl.TRIANGLES, 0, 3)
+    return
+  }
+  const t0 = performance.now()
+  function frame(now: number) {
+    shaderSpeed += (shaderSpeedTarget - shaderSpeed) * 0.02
+    mx += (tmx - mx) * 0.05
+    my += (tmy - my) * 0.05
+    gl!.uniform1f(uTime!, (now - t0) / 1000)
+    gl!.uniform2f(uMouse!, mx, my)
+    gl!.uniform1f(uSpeed!, shaderSpeed)
+    gl!.uniform2f(uRes!, canvas!.width, canvas!.height)
+    gl!.drawArrays(gl.TRIANGLES, 0, 3)
+    raf = requestAnimationFrame(frame)
+  }
+  raf = requestAnimationFrame(frame)
+}
+
+onMounted(initShader)
+onBeforeUnmount(() => { cancelAnimationFrame(raf) })
 </script>
 
 <style scoped>
-.home-container {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 60px 20px;
-  position: relative;
-  overflow: hidden;
-}
+/* 世界：着色器门户。深单色场 + 细字白 + 炽热橙 hover。桌面优先。 */
+.portal{position:relative;min-height:100vh;display:flex;flex-direction:column;
+  background:#0a0e1a;color:#e8ecf4;overflow:hidden;}
+.portal__field{position:fixed;inset:0;width:100%;height:100%;display:block;}
+.portal.no-webgl .portal__field{display:none;}
+.portal.no-webgl{background:
+  radial-gradient(120% 90% at 70% 10%,#2a1c10 0%,transparent 55%),
+  radial-gradient(90% 80% at 20% 90%,#12243c 0%,transparent 60%),#0a0e1a;}
 
-/* 背景装饰 */
-.bg-decoration {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  overflow: hidden;
-}
+/* 细字标签：等宽 tracked（世界的语法） */
+.brand,.corner-note,.portal__spec li,.portal__foot,.sheet__no{
+  font-family:'Spline Sans Mono Variable',ui-monospace,Menlo,monospace;
+  font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:rgba(232,236,244,.72);}
+.brand__cn{font-family:'PingFang SC','Microsoft YaHei',sans-serif;letter-spacing:.5em;
+  font-size:12px;color:rgba(232,236,244,.6);margin-left:.4em;}
+.brand__dot{display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:#ff7a45;margin:0 .9em .1em .9em;vertical-align:middle;}
 
-.circle {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  animation: float 20s infinite ease-in-out;
-}
+.portal__corners{position:relative;z-index:2;display:flex;justify-content:space-between;
+  align-items:center;flex-wrap:wrap;gap:8px;padding:26px 40px;}
 
-.circle-1 {
-  width: 300px;
-  height: 300px;
-  top: -100px;
-  left: -100px;
-  animation-delay: 0s;
-}
+.portal__stage{position:relative;z-index:1;flex:1;display:grid;
+  grid-template-columns:minmax(0,1.05fr) minmax(360px,480px);gap:48px;
+  align-items:center;width:min(1240px,100% - 80px);margin:0 auto;padding:24px 0 48px;}
 
-.circle-2 {
-  width: 200px;
-  height: 200px;
-  top: 50%;
-  right: -50px;
-  animation-delay: 5s;
-}
+/* 超大单字（世界语法：oversized display） */
+.portal__title{font-family:'Noto Sans SC','PingFang SC',sans-serif;font-weight:900;
+  font-size:min(11vw,150px);line-height:1.02;letter-spacing:-.02em;
+  color:#f2f5fa;margin:0 0 22px;
+  animation:dawn 1.6s cubic-bezier(.16,1,.3,1) both;}
+.portal__period{color:#ff7a45;}
+.portal__sub{font-size:17px;line-height:1.9;color:rgba(232,236,244,.82);
+  max-width:34em;margin:0 0 30px;animation:dawn 1.6s .15s cubic-bezier(.16,1,.3,1) both;}
+.portal__spec{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;
+  animation:dawn 1.6s .3s cubic-bezier(.16,1,.3,1) both;}
+.portal__spec li::before{content:'';display:inline-block;width:18px;height:1px;
+  background:#ff7a45;vertical-align:middle;margin-right:14px;}
 
-.circle-3 {
-  width: 150px;
-  height: 150px;
-  bottom: -50px;
-  left: 30%;
-  animation-delay: 10s;
-}
+/* 悬浮表单：backdrop-blur 是功能性的——保证色场亮区扫过时文字可读 */
+.sheet{position:relative;border:1px solid rgba(232,236,244,.14);border-radius:4px;
+  background:rgba(10,14,26,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:0 24px 60px rgba(0,0,0,.45);padding:26px 28px 24px;
+  animation:rise 1.1s .35s cubic-bezier(.16,1,.3,1) both;}
+.sheet__head{display:flex;justify-content:space-between;align-items:baseline;
+  border-bottom:1px solid rgba(232,236,244,.14);padding-bottom:12px;margin-bottom:20px;}
+.sheet__title{font-family:'PingFang SC',sans-serif;font-size:17px;font-weight:700;color:#f2f5fa;}
 
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-30px) rotate(180deg);
-  }
-}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px;}
+.field{display:flex;flex-direction:column;gap:8px;border:0;padding:0;margin:0;min-width:0;}
+.field--wide-name{grid-column:span 2;}
+.field--full{grid-column:span 2;}
+.field__label{font-family:'PingFang SC',sans-serif;font-size:12px;
+  color:rgba(232,236,244,.72);letter-spacing:.08em;}
+.field__input{background:transparent;border:0;border-bottom:1px solid rgba(232,236,244,.28);
+  color:#eef2f8;font-size:15px;padding:7px 2px;caret-color:#ff7a45;border-radius:0;
+  font-family:inherit;transition:border-color .2s;}
+.field__input::placeholder{color:rgba(232,236,244,.62);}
+.field__input:hover{border-bottom-color:rgba(232,236,244,.5);}
+.field__input:focus{outline:none;border-bottom-color:#ff7a45;
+  box-shadow:0 1px 0 0 #ff7a45;}
+input[type="date"].field__input{font-family:'Spline Sans Mono Variable',Menlo,monospace;
+  font-size:14px;letter-spacing:.02em;}
+input[type="date"].field__input::-webkit-calendar-picker-indicator{
+  filter:invert(.85) sepia(.3);cursor:pointer;}
+.field__err{font-family:'PingFang SC',sans-serif;font-size:12px;color:#ffb08f;}
+.field__days{font-family:'Spline Sans Mono Variable',Menlo,monospace;font-size:26px;
+  color:#f2f5fa;line-height:1.15;}
+.field__days i{font-family:'PingFang SC',sans-serif;font-style:normal;font-size:12px;
+  color:rgba(232,236,244,.6);margin-left:6px;letter-spacing:.2em;}
 
-/* 页面标题 */
-.page-header {
-  text-align: center;
-  margin-bottom: 50px;
-  animation: fadeInDown 0.8s ease-out;
-  position: relative;
-  z-index: 1;
-}
+.seg{display:flex;gap:6px;flex-wrap:wrap;}
+.seg__item{flex:1;min-width:64px;background:transparent;border:1px solid rgba(232,236,244,.2);
+  color:rgba(232,236,244,.75);font-family:'PingFang SC',sans-serif;font-size:13px;
+  padding:8px 4px;cursor:pointer;border-radius:2px;transition:all .18s;}
+.seg__item:hover{border-color:rgba(232,236,244,.5);color:#eef2f8;}
+.seg__item.is-on{border-color:#ff7a45;color:#ff9d6b;background:rgba(255,122,69,.08);}
+.seg__item:focus-visible{outline:2px solid #ff7a45;outline-offset:2px;}
 
-.icon-wrapper {
-  margin-bottom: 20px;
-}
+.chips{display:flex;gap:8px;flex-wrap:wrap;}
+.chip{display:inline-flex;align-items:center;gap:8px;background:transparent;
+  border:1px solid rgba(232,236,244,.2);color:rgba(232,236,244,.75);
+  font-family:'PingFang SC',sans-serif;font-size:13px;padding:8px 14px;
+  cursor:pointer;border-radius:999px;transition:all .18s;}
+.chip::before{content:'';width:6px;height:6px;border-radius:50%;
+  border:1px solid rgba(232,236,244,.5);transition:all .18s;}
+.chip:hover{border-color:rgba(232,236,244,.5);color:#eef2f8;}
+.chip.is-on{border-color:#ff7a45;color:#ff9d6b;}
+.chip.is-on::before{background:#ff7a45;border-color:#ff7a45;}
+.chip:focus-visible{outline:2px solid #ff7a45;outline-offset:2px;}
 
-.icon {
-  font-size: 80px;
-  display: inline-block;
-  animation: bounce 2s infinite;
-}
+.go{margin-top:22px;width:100%;height:52px;background:transparent;
+  border:1px solid rgba(232,236,244,.4);border-radius:3px;color:#f2f5fa;
+  font-family:'Noto Sans SC','PingFang SC',sans-serif;font-size:16px;font-weight:700;letter-spacing:.35em;
+  cursor:pointer;transition:all .25s;}
+.go:hover:not(:disabled){background:#ff7a45;border-color:#ff7a45;color:#0a0e1a;}
+.go:focus-visible{outline:2px solid #ff7a45;outline-offset:3px;}
+.go:disabled{opacity:.6;cursor:progress;animation:breath 1.6s ease-in-out infinite;}
+.sheet__form-err{font-family:'PingFang SC',sans-serif;font-size:13px;
+  color:#ffb08f;margin:12px 0 0;text-align:center;}
 
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
-}
+.portal__foot{position:relative;z-index:1;display:flex;justify-content:space-between;
+  gap:16px;flex-wrap:wrap;padding:20px 40px;border-top:1px solid rgba(232,236,244,.1);
+  color:rgba(232,236,244,.66);}
 
-.page-title {
-  font-size: 56px;
-  font-weight: 800;
-  color: #ffffff;
-  margin-bottom: 16px;
-  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
-  letter-spacing: 2px;
-}
+/* 唯一的运动时刻：黎明渐显 + 上浮 */
+@keyframes dawn{from{opacity:0;transform:translateY(14px);filter:blur(6px);}
+  to{opacity:1;transform:none;filter:none;}}
+@keyframes rise{from{opacity:0;transform:translateY(24px);}
+  to{opacity:1;transform:none;}}
+@keyframes breath{0%,100%{opacity:.45;}50%{opacity:.85;}}
 
-.page-subtitle {
-  font-size: 20px;
-  color: rgba(255, 255, 255, 0.95);
-  margin: 0;
-  font-weight: 300;
+@media (prefers-reduced-motion: reduce){
+  .portal__title,.portal__sub,.portal__spec,.sheet{animation:none;}
+  .go:disabled{animation:none;}
 }
-
-/* 表单卡片 */
-.form-card {
-  max-width: 1400px;
-  margin: 0 auto;
-  border-radius: 24px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
-  animation: fadeInUp 0.8s ease-out;
-  position: relative;
-  z-index: 1;
-  backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.98) !important;
+@media (max-width: 960px){
+  .portal__stage{grid-template-columns:1fr;gap:30px;width:calc(100% - 40px);padding-top:8px;}
+  .portal__title{font-size:64px;}
+  .portal__corners{padding:20px 20px;}
+  .portal__foot{padding:16px 20px;}
 }
-
-/* 表单分区 */
-.form-section {
-  margin-bottom: 32px;
-  padding: 24px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
-  border-radius: 16px;
-  border: 1px solid #e8e8e8;
-  transition: all 0.3s ease;
-}
-
-.form-section:hover {
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
-  transform: translateY(-2px);
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #667eea;
-}
-
-.section-icon {
-  font-size: 24px;
-  margin-right: 12px;
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-}
-
-/* 表单标签 */
-.form-label {
-  font-size: 15px;
-  font-weight: 500;
-  color: #555;
-}
-
-/* 自定义输入框 */
-.custom-input :deep(.ant-input),
-.custom-input :deep(.ant-picker) {
-  border-radius: 12px;
-  border: 2px solid #e8e8e8;
-  transition: all 0.3s ease;
-}
-
-.custom-input :deep(.ant-input:hover),
-.custom-input :deep(.ant-picker:hover) {
-  border-color: #667eea;
-}
-
-.custom-input :deep(.ant-input:focus),
-.custom-input :deep(.ant-picker-focused) {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-/* 自定义选择框 */
-.custom-select :deep(.ant-select-selector) {
-  border-radius: 12px !important;
-  border: 2px solid #e8e8e8 !important;
-  transition: all 0.3s ease;
-}
-
-.custom-select:hover :deep(.ant-select-selector) {
-  border-color: #667eea !important;
-}
-
-.custom-select :deep(.ant-select-focused .ant-select-selector) {
-  border-color: #667eea !important;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
-}
-
-/* 天数显示 - 紧凑版 */
-.days-display-compact {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
-  color: white;
-}
-
-.days-display-compact .days-value {
-  font-size: 24px;
-  font-weight: 700;
-  margin-right: 4px;
-}
-
-.days-display-compact .days-unit {
-  font-size: 14px;
-}
-
-/* 偏好标签 */
-.preference-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.custom-checkbox-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  width: 100%;
-}
-
-.preference-tag :deep(.ant-checkbox-wrapper) {
-  margin: 0 !important;
-  padding: 8px 16px;
-  border: 2px solid #e8e8e8;
-  border-radius: 20px;
-  transition: all 0.3s ease;
-  background: white;
-  font-size: 14px;
-}
-
-.preference-tag :deep(.ant-checkbox-wrapper:hover) {
-  border-color: #667eea;
-  background: #f5f7ff;
-}
-
-.preference-tag :deep(.ant-checkbox-wrapper-checked) {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-/* 自定义文本域 */
-.custom-textarea :deep(.ant-input) {
-  border-radius: 12px;
-  border: 2px solid #e8e8e8;
-  transition: all 0.3s ease;
-}
-
-.custom-textarea :deep(.ant-input:hover) {
-  border-color: #667eea;
-}
-
-.custom-textarea :deep(.ant-input:focus) {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-/* 提交按钮 */
-.submit-button {
-  height: 56px;
-  border-radius: 28px;
-  font-size: 18px;
-  font-weight: 600;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
-  transition: all 0.3s ease;
-}
-
-.submit-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
-}
-
-.submit-button:active {
-  transform: translateY(0);
-}
-
-.button-icon {
-  margin-right: 8px;
-  font-size: 20px;
-}
-
-/* 加载容器 */
-.loading-container {
-  text-align: center;
-  padding: 24px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
-  border-radius: 16px;
-  border: 2px dashed #667eea;
-}
-
-.loading-status {
-  margin-top: 16px;
-  color: #667eea;
-  font-size: 18px;
-  font-weight: 500;
-}
-
-/* 动画 */
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@media (max-width: 560px){
+  .grid{grid-template-columns:1fr;}
+  .field--wide-name,.field--full{grid-column:auto;}
+  .portal__title{font-size:52px;}
+  .corner-note{display:none;}
+  .brand__cn{letter-spacing:.2em;}
 }
 </style>
-
